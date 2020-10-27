@@ -108,14 +108,14 @@ amount of 500:
 ````
 
 The same loop above will run at full speed for 500 messages,
-taking a total of 1000 microseconds,
+taking a total of 1 millisecond,
 and the 501st message will delay 9 milliseconds,
 for an average of 500 messages per 10 milliseconds,
 or 50,000 messages per second.
 
 Over a full second, the two averages are the same.
 But the second one allows much more intense short-term bursts,
-but imposes a much longer delay afterward.
+and can impose a much longer delay.
 
 The goal of using a longer interval is to avoid latency when bursts are
 needed,
@@ -140,9 +140,13 @@ packets each,
 you might want a large message to consume more tokens than a small message.
 
 ````
-  approx_num_packets = (message_size / 1200) + 1;
+  /* Assume 1300 bytes of user data par packet. */
+  approx_num_packets = (message_size / 1300) + 1;
   rtlim_take(rtlim, approx_num_packets, 1);
 ````
+Note that calculating the number of packets required by Ultra
+Messaging for a given message size can be difficult and depends
+on configuration.
 
 
 ## Limitations
@@ -150,6 +154,11 @@ you might want a large message to consume more tokens than a small message.
 The rtlim code is not thread-safe.
 If multiple threads will be taking tokens from a single rtlim object,
 a mutex lock will have to be added.
+
+But note that the original motivation for this rate limiter was for
+use with Smart Sources, which are also not thread-safe.
+So I would expect the user to solve both external to the
+rtlim module.
 
 
 ## Building and Testing
@@ -223,3 +232,4 @@ oscillating around the maximum sustainable send rate.
 However, ACKs from receivers is generally required to detect congestion,
 which is usually bad for multicast protocols,
 and loss introduces significant latency outlier for NAK/retransmission.
+

@@ -1,3 +1,7 @@
+# My temp file names
+*.x
+x.*
+
 # Prerequisites
 *.d
 
