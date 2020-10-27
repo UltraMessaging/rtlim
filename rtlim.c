@@ -97,6 +97,7 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
     return -2;
   }
 
+  /* For blocking, this do loop can busy loop until enough tokens are earned. */
   do {
     rtlim->cur_ns = current_time_ns();
 
