@@ -88,7 +88,7 @@ void rtlim_delete(rtlim_t *rtlim)
 
 /* Returns:
  *    0 for success,
- *   -1 for tokens not availale, -2.
+ *   -1 for tokens not availale.
  *   -2 for non-blocking request for more tokens than refill amount.
  */
 int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
