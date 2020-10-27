@@ -106,7 +106,7 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
       rtlim->last_refill_ns = rtlim->cur_ns;
     }
 
-    /* Does rate limiter have enough tokens for request? */
+    /* Does rate limiter have enough tokens for the request? */
     if (take_token_amount <= rtlim->current_tokens) {
       rtlim->current_tokens -= take_token_amount;  /* Take tokens. */
       take_token_amount = 0;
