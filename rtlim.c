@@ -1,5 +1,6 @@
-/* rtlim.c */
-/*
+/* rtlim.c - Rate Limiter module.
+ * Project home: https://github.com/UltraMessaging/rtlim
+ *
  * Copyright (c) 2020 Informatica Corporation. All Rights Reserved.
  * Permission is granted to licensees to use
  * or alter this software for any purpose, including commercial applications,
@@ -28,6 +29,7 @@
 
 #include "rtlim.h"
 
+
 /* Primitive error handling. */
 #define NULLCHK(ptr_) do { \
   if ((ptr_) == NULL) { \
@@ -48,6 +50,9 @@
 } while (0);
 
 
+/* Monotonic clock (not "wall clock") with nanosecond precision.
+ * Retuens: 64-bit unsigned number of nanoseconds.
+ */
 unsigned long long current_time_ns()
 {
   struct timespec cur_timespec;
@@ -64,6 +69,7 @@ unsigned long long current_time_ns()
 }  /* current_time_ns */
 
 
+/* API to create rtlim object. */
 rtlim_t *rtlim_create(unsigned long long refill_interval_ns, int refill_token_amount)
 {
   rtlim_t *rtlim;
@@ -74,19 +80,22 @@ rtlim_t *rtlim_create(unsigned long long refill_interval_ns, int refill_token_am
   rtlim->refill_interval_ns = refill_interval_ns;
   rtlim->refill_token_amount = refill_token_amount;
   rtlim->current_tokens = refill_token_amount;  /* Fill rate limiter. */
-  rtlim->last_refill_ns = current_time_ns();
+  rtlim->cur_ns = rtlim->last_refill_ns = current_time_ns();
 
   return rtlim;
 }  /* rtlim_create */
 
 
+/* API to delete rtlim object. */
 void rtlim_delete(rtlim_t *rtlim)
 {
   free(rtlim);
 }  /* rtlim_delete */
 
 
-/* Returns:
+/* API to request tokens from rtlim object.
+ * The "block" parameter must one of: RTLIM_BLOCK, RTLIM_NON_BLOCK.
+ * Returns:
  *    0 for success,
  *   -1 for tokens not availale.
  *   -2 for non-blocking request for more tokens than refill amount.
@@ -129,8 +138,8 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
 }  /* rtlim_take */
 
 
-/************************ Test code *************************/
 #ifdef SELFTEST
+/************************ Test code *************************/
 
 #define EQUALCHK(val_,chk_) do { \
   unsigned long long inval_ = (unsigned long long)(val_); \
@@ -143,6 +152,8 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
   } \
 } while (0)
 
+/* For checking things like times, don't need exact accuracy.
+ * Make sure actual is within +/- 2% of the check value. */
 #define APPROXCHK(val_,chk_) do { \
   unsigned long long inval_ = (unsigned long long)(val_); \
   unsigned long long inchk_ = (unsigned long long)(chk_); \
@@ -156,13 +167,14 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
   } \
 } while (0)
 
+
 int main(int argc, char **argv)
 {
   rtlim_t *rl;
   int status;
   unsigned long long start_time;
 
-  rl = rtlim_create(500000000, 100);  /* Half second */
+  rl = rtlim_create(500000000, 100);  /* Half second. */
 
   /* Error: taking more tokens than it refills to with a non-blocking take. */
   start_time = current_time_ns();

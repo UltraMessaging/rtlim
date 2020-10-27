@@ -1,5 +1,6 @@
-/* rtlim.h */
-/*
+/* rtlim.h - Rate Limiter header file.
+ * Project home: https://github.com/UltraMessaging/rtlim
+ *
  * Copyright (c) 2020 Informatica Corporation. All Rights Reserved.
  * Permission is granted to licensees to use
  * or alter this software for any purpose, including commercial applications,
@@ -27,14 +28,17 @@ extern "C" {
 #endif /* __cplusplus */
 
 
+/* Structure for "rtlim" object. App should mostly treat it as opaque. */
 typedef struct rtlim_s {
-  unsigned long long refill_interval_ns;
-  unsigned long long last_refill_ns;
-  unsigned long long cur_ns;
-  unsigned long long refill_token_amount;
-  int current_tokens;
+  unsigned long long refill_interval_ns;   /* Set by rtlim_create() */
+  unsigned long long last_refill_ns;       /* Set by rtlim_create() */
+  unsigned long long refill_token_amount;  /* Set by rtlim_create() */
+  unsigned long long cur_ns;               /* Last timestamp taken. */
+  int current_tokens;                      /* Available tokens to take. */
 } rtlim_t;
 
+
+/* Values for rtlim_take() "block" parameter. */
 #define RTLIM_BLOCKING 1
 #define RTLIM_NON_BLOCKING 2
 
