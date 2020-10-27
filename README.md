@@ -24,31 +24,35 @@ THE LIKELIHOOD OF SUCH DAMAGES.
 
 ## Introduction
 
-The primary intended application of this example code is to have a messaging
-publisher limit the rate at which it publishes.
-However, the code was written to be general to allow other applications.
+You can use the rtlim API to control the rate at which your
+application performs some operation.
+The original motivation for this module was to add rate control
+functionality to
+[Ultra Messaging Smart Sources](https://ultramessaging.github.io/currdoc/doc/Design/advancedoptimizations.html#smartsources_),
+but the code is not specific to messaging and can be used to control
+the rate of any desired operation.
 
-The purpose of limiting messaging publishing rates is to avoid loss.
+The reason for limiting messaging publishing rates is to avoid
+[packet loss](https://ultramessaging.github.io/currdoc/doc/Design/packetloss.html).
 It is primarily for UDP-based messaging where sending too fast can
 fill a buffer somewhere on its way to the subscriber,
 resulting in drops.
+
+
+## General Approach
 
 There are many ways to limit the publishing rate;
 see [Alternatives](#alternatives).
 The method used here is a
 [Token Bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket),
 similar to the one used by Ultra Messaging.
-One important difference: instead of using an asynchronous timer to
-refill the "bucket",
+One important difference:
+instead of using an asynchronous timer to refill the tokens,
 it is done opportunistically by the sender.
 
-
-## General Approach
-
 The rtlim C API consists of an object that is created,
-and then used to control the rate of any arbitrary operation.
-The motivation is to control the rate of sending messages,
-but it could be anything.
+and then used to control the rate of sending messages
+(or any arbitrary operation).
 
 To use an rtlim object, you "take" one or more tokens from it before
 the operation you want to be controlled.
@@ -79,24 +83,52 @@ For example:
 The interval is set to 1 millisecond (1000000 nanoseconds).
 The number of tokens is 50.
 
+For example, you can send in a tight loop at the desired rate of
+50 messages every millisecond:
 ````
   while (1) {
-    rtlim_take(rtlim, 1, 1);
-    send_message(...);
+    rtlim_take(rtlim, 1, RTLIM_BLOCKING);
+    lbm_ssrc_send_ex(...);
   }
 ````
 
-Let's say that each send_message() takes 2 microseconds.
+Let's say that each lbm_ssrc_send_ex() takes 2 microseconds.
 The first 50 times around the loop will execute at full speed,
-taking 100 microseconds.
+taking a total of 100 microseconds.
 The 51st call to rtlim_take() will delay 900 microseconds.
 The 52nd through 100th loops are full speed. The 101st call
 delays 900 microseconds.
-Thus, the message send rate is 50 messages per millisecond when
-averaged over the entire millisecond.
+Thus, the message send rate is 50 messages per millisecond,
+or 50,000 mssages per second.
+
+Compare this to an interval of 10 milliseconds and a refill token
+amount of 500:
+````
+  rtlim = rtlim_create(10000000, 500);
+````
+
+The same loop above will run at full speed for 500 messages,
+taking a total of 1000 microseconds,
+and the 501st message will delay 9 milliseconds,
+for an average of 500 messages per 10 milliseconds,
+or 50,000 messages per second.
+
+Over a full second, the two averages are the same.
+But the second one allows much more intense short-term bursts,
+but imposes a much longer delay afterward.
+
+The goal of using a longer interval is to avoid latency when bursts are
+needed,
+but care must be taken not to allow a burst so intense that it causes loss.
+That is, only delay the sender when the alternative (loss) is worse.
+
+To see some example usages that demonstrate its features and behavior,
+see the "main()" function inside "rtlim.c".
+(Note: the "main()" function is conditionally compiled only if
+"-DSELFTEST" is specified.)
 
 
-## Taking more than one token
+## Taking More than One Token
 
 The previous example limited the number of messages sent per millisecond,
 regardless of the message size.
@@ -111,6 +143,38 @@ you might want a large message to consume more tokens than a small message.
   approx_num_packets = (message_size / 1200) + 1;
   rtlim_take(rtlim, approx_num_packets, 1);
 ````
+
+
+## Limitations
+
+The rtlim code is not thread-safe.
+If multiple threads will be taking tokens from a single rtlim object,
+a mutex lock will have to be added.
+
+
+## Building and Testing
+
+The rtlim.c file is straightforward and has no external dependencies
+except for the provided "rtlim.h" header file.
+The intent is that the source code be incorporated directly into
+your application.
+
+Alternatively, "rtlim.c" can be compiled to object and linked into
+your application.
+Application source files should include "rtlim.h".
+
+Finally, the module includes a "main()" which performs a self-test.
+To enable the self-test "main()", compile with the
+"-DSELFTEST" directive.
+See "tst.sh" for a script that compiles and runs the test.
+
+
+## Porting to Windows
+
+The module makes use of Unix's "clock_gettime()" function to get
+a nanosecond-precision, monotonically increasing time.
+For suggestions porting it to windows, see
+[porting-clock-gettime-to-windows](https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows).
 
 
 ## Alternatives

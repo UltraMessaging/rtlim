@@ -26,6 +26,7 @@
 #include <time.h>
 #include <errno.h>
 
+#include "rtlim.h"
 
 /* Primitive error handling. */
 #define NULLCHK(ptr_) do { \
@@ -45,18 +46,6 @@
     exit(1); \
   } \
 } while (0);
-
-
-typedef struct rtlim_s {
-  unsigned long long refill_interval_ns;
-  unsigned long long last_refill_ns;
-  unsigned long long cur_ns;
-  unsigned long long refill_token_amount;
-  int current_tokens;
-} rtlim_t;
-
-#define BLOCKING 1
-#define NON_BLOCKING 2
 
 
 unsigned long long current_time_ns()
@@ -104,7 +93,7 @@ void rtlim_delete(rtlim_t *rtlim)
  */
 int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
 {
-  if ((block == NON_BLOCKING) && take_token_amount > rtlim->refill_token_amount) {
+  if ((block == RTLIM_NON_BLOCKING) && take_token_amount > rtlim->refill_token_amount) {
     return -2;
   }
 
@@ -123,7 +112,7 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
       take_token_amount = 0;
     }
     else {  /* Not enoough available tokens. */
-      if (block == BLOCKING) {
+      if (block == RTLIM_BLOCKING) {
         /* for blocking behavior, take all available tokens and wait for more. */
         take_token_amount -= rtlim->current_tokens;
         rtlim->current_tokens = 0;
@@ -176,13 +165,13 @@ int main(int argc, char **argv)
 
   /* Error: taking more tokens than it refills to with a non-blocking take. */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 200, NON_BLOCKING);
+  status = rtlim_take(rl, 200, RTLIM_NON_BLOCKING);
   EQUALCHK(status, -2);  /* make sure it failed. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
 
   /* Success: take 2 intervals worth (takes a full second). */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 200, BLOCKING);
+  status = rtlim_take(rl, 200, RTLIM_BLOCKING);
   EQUALCHK(status, 0);
   APPROXCHK(current_time_ns(), start_time + 1000000000);  /* 1 sec. */
   EQUALCHK(rl->current_tokens, 0);
@@ -190,7 +179,7 @@ int main(int argc, char **argv)
   /* Sleep less than the refill interval and nonblock for 100. Should fail. */
   usleep(400000);  /* .4 sec */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 100, NON_BLOCKING);
+  status = rtlim_take(rl, 100, RTLIM_NON_BLOCKING);
   EQUALCHK(status, -1);  /* make sure it failed. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
   EQUALCHK(rl->current_tokens, 0);
@@ -198,7 +187,7 @@ int main(int argc, char **argv)
   /* Sleep past than the refill interval and nonblock for 100. Should be OK. */
   usleep(200000);  /* .2 sec */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 100, NON_BLOCKING);
+  status = rtlim_take(rl, 100, RTLIM_NON_BLOCKING);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
   EQUALCHK(rl->current_tokens, 0);
@@ -206,21 +195,21 @@ int main(int argc, char **argv)
   /* Sleep past than the refill interval and nonblock for 80. Should be OK. */
   usleep(600000);  /* .6 sec */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 80, BLOCKING);
+  status = rtlim_take(rl, 80, RTLIM_BLOCKING);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
   EQUALCHK(rl->current_tokens, 20);
 
   /* Block for 80 more. */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 80, BLOCKING);
+  status = rtlim_take(rl, 80, RTLIM_BLOCKING);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time + 500000000);  /* .5 sec. */
   EQUALCHK(rl->current_tokens, 40);
 
   /* Block for 400 more. */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 400, BLOCKING);
+  status = rtlim_take(rl, 400, RTLIM_BLOCKING);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time + 2000000000);  /* 2 seconds. */
   EQUALCHK(rl->current_tokens, 40);
