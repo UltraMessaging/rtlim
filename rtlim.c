@@ -30,7 +30,8 @@
 #include "rtlim.h"
 
 
-/* Primitive error handling. */
+/* Primitive error handling - exit on error, which is rude for a
+ * library function. */
 #define NULLCHK(ptr_) do { \
   if ((ptr_) == NULL) { \
     fprintf(stderr, "Null pointer error at %s:%d '%s'\n", \
