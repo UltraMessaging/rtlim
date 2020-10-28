@@ -245,7 +245,7 @@ Also, RTLIM_BLOCK_SLEEP mode relies on usleep(), which has microsecond precision
 Windows' Sleep() function has millisecond precision.
 
 
-## Alternatives
+## Alternative Algorithms
 
 One problem with this approach is selecting the sending rate limit.
 You want to set the rate limit as high as possible to avoid
@@ -253,7 +253,10 @@ unnecessary latency,
 but not so high that you risk dropping data due to overload.
 It typically requires experimental testing to determine the best
 rate limit.
-It would be nice if the system itself could determine.
+And even then, a change in receiver timing could mess things up.
+
+It would be nice if the system itself could determine the correct
+automatically and dynamically.
 
 
 ### Sliding Windows
