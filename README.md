@@ -111,21 +111,21 @@ rtlim_take() decrements its internal token counter and returns
 immediately.
 
 If the number of tokens needed cannot be satisfied,
-rtlim_take()'s behavior depends on the "block" parameter.
+rtlim_take()'s behavior depends on the "block" parameter:
 * RTLIM_NON_BLOCK - rtlim_take() returns immediately with a
 negative status to indicate insufficient tokens available.
 * RTLIM_BLOCK_SPIN - rtlim_take() delays by busy looping
 until enough tokens are earned to satisfy the need.
 * RTLIM_BLOCK_SLEEP - rtlim_take() delays by calling
 usleep() until enough tokens are earned to satisfy the need.
-It has the advantage of allowing other threads to use the CPU
+This has the advantage of allowing other threads to use the CPU
 during its sleep time, but the disadvantage of being less deterministic
 as to when it wakes up.
 It might sleep significantly longer than the minimum time required,
 resulting in higher latencies than necessary.
 
 
-## Examples
+## Example
 
 Create a rate limiter.
 ````
