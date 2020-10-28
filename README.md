@@ -42,7 +42,7 @@ resulting in drops.
 ## General Approach
 
 There are many ways to limit the publishing rate;
-see [Alternatives](#alternatives).
+see [Alternative Algorithms](#alternative-algorithms).
 The method used here is a
 [Token Bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket),
 similar to the one used by Ultra Messaging.
