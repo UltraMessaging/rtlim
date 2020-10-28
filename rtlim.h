@@ -39,8 +39,9 @@ typedef struct rtlim_s {
 
 
 /* Values for rtlim_take() "block" parameter. */
-#define RTLIM_BLOCKING 1
-#define RTLIM_NON_BLOCKING 2
+#define RTLIM_BLOCK_SPIN  1
+#define RTLIM_BLOCK_SLEEP 2
+#define RTLIM_NON_BLOCK   3
 
 
 unsigned long long current_time_ns();

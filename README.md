@@ -59,7 +59,7 @@ the operation you want to be controlled.
 If you are within the allowed rate,
 the "take" function returns right away.
 If you are exceeding the rate limit and blocking mode is selected,
-the "take" function busy loops for enough time to bring you into
+the "take" function delays for enough time to bring you into
 compliance.
 When the "take" function returns, you may perform the operation.
 
@@ -87,10 +87,21 @@ For example, you can send in a tight loop at the desired rate of
 50 messages every millisecond:
 ````
   while (1) {
-    rtlim_take(rtlim, 1, RTLIM_BLOCKING);
+    rtlim_take(rtlim, 1, RTLIM_BLOCK_SPIN);
     lbm_ssrc_send_ex(...);
   }
 ````
+Note that it specified RTLIM_BLOCK_SPIN.
+If a delay is needed, rtlim will busy-loop for the amount of time needed
+to add more tokens to satisfy the rtlim_take().
+
+Alternaively, rtlim_take() can use RTLIM_BLOCK_SLEEP, which uses the
+"usleep()" function.
+It has the advantage of allowing other threads to use the CPU
+during its sleep time, but the disadvantage of being less deterministic
+as to when it wakes up.
+It might sleep significantly longer than the minimum time required,
+resulting in higher latencies than necessary.
 
 Let's say that each lbm_ssrc_send_ex() takes 2 microseconds.
 The first 50 times around the loop will execute at full speed,

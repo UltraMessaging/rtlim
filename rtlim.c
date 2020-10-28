@@ -95,7 +95,8 @@ void rtlim_delete(rtlim_t *rtlim)
 
 
 /* API to request tokens from rtlim object.
- * The "block" parameter must one of: RTLIM_BLOCK, RTLIM_NON_BLOCK.
+ * The "block" parameter must one of: RTLIM_BLOCK_SPIN, RTLIM_BLOCK_SLEEP,
+ *   RTLIM_NON_BLOCK.
  * Returns:
  *    0 for success,
  *   -1 for tokens not availale.
@@ -103,7 +104,7 @@ void rtlim_delete(rtlim_t *rtlim)
  */
 int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
 {
-  if ((block == RTLIM_NON_BLOCKING) && take_token_amount > rtlim->refill_token_amount) {
+  if ((block == RTLIM_NON_BLOCK) && take_token_amount > rtlim->refill_token_amount) {
     return -2;
   }
 
@@ -123,14 +124,23 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
       take_token_amount = 0;
     }
     else {  /* Not enoough available tokens. */
-      if (block == RTLIM_BLOCKING) {
-        /* for blocking behavior, take all available tokens and wait for more. */
-        take_token_amount -= rtlim->current_tokens;
-        rtlim->current_tokens = 0;
-      }
-      else {
+      if (block == RTLIM_NON_BLOCK) {
         /* Non-blocking, not enough tokens. */
         return -1;
+      }
+      else {
+        /* For blocking, take all available tokens and wait for more. */
+        take_token_amount -= rtlim->current_tokens;
+        rtlim->current_tokens = 0;
+        if (block == RTLIM_BLOCK_SLEEP) {
+          /* How many microseconds to wait? */
+          unsigned long long delta_usec;
+          delta_usec = ( (rtlim->last_refill_ns + rtlim->refill_interval_ns) -
+                    rtlim->cur_ns ) / 1000ll;
+          if (delta_usec > 0) {
+            usleep((int)delta_usec);
+          }
+        }
       }
     }
   } while (take_token_amount > 0);
@@ -179,13 +189,13 @@ int main(int argc, char **argv)
 
   /* Error: taking more tokens than it refills to with a non-blocking take. */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 200, RTLIM_NON_BLOCKING);
+  status = rtlim_take(rl, 200, RTLIM_NON_BLOCK);
   EQUALCHK(status, -2);  /* make sure it failed. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
 
   /* Success: take 2 intervals worth (takes a full second). */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 200, RTLIM_BLOCKING);
+  status = rtlim_take(rl, 200, RTLIM_BLOCK_SPIN);
   EQUALCHK(status, 0);
   APPROXCHK(current_time_ns(), start_time + 1000000000);  /* 1 sec. */
   EQUALCHK(rl->current_tokens, 0);
@@ -193,7 +203,7 @@ int main(int argc, char **argv)
   /* Sleep less than the refill interval and nonblock for 100. Should fail. */
   usleep(400000);  /* .4 sec */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 100, RTLIM_NON_BLOCKING);
+  status = rtlim_take(rl, 100, RTLIM_NON_BLOCK);
   EQUALCHK(status, -1);  /* make sure it failed. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
   EQUALCHK(rl->current_tokens, 0);
@@ -201,7 +211,7 @@ int main(int argc, char **argv)
   /* Sleep past than the refill interval and nonblock for 100. Should be OK. */
   usleep(200000);  /* .2 sec */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 100, RTLIM_NON_BLOCKING);
+  status = rtlim_take(rl, 100, RTLIM_NON_BLOCK);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
   EQUALCHK(rl->current_tokens, 0);
@@ -209,23 +219,30 @@ int main(int argc, char **argv)
   /* Sleep past than the refill interval and nonblock for 80. Should be OK. */
   usleep(600000);  /* .6 sec */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 80, RTLIM_BLOCKING);
+  status = rtlim_take(rl, 80, RTLIM_BLOCK_SPIN);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time);  /* no time delay. */
   EQUALCHK(rl->current_tokens, 20);
 
   /* Block for 80 more. */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 80, RTLIM_BLOCKING);
+  status = rtlim_take(rl, 80, RTLIM_BLOCK_SPIN);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time + 500000000);  /* .5 sec. */
   EQUALCHK(rl->current_tokens, 40);
 
   /* Block for 400 more. */
   start_time = current_time_ns();
-  status = rtlim_take(rl, 400, RTLIM_BLOCKING);
+  status = rtlim_take(rl, 400, RTLIM_BLOCK_SPIN);
   EQUALCHK(status, 0);  /* Success. */
   APPROXCHK(current_time_ns(), start_time + 2000000000);  /* 2 seconds. */
+  EQUALCHK(rl->current_tokens, 40);
+
+  /* Block for 200 more. */
+  start_time = current_time_ns();
+  status = rtlim_take(rl, 400, RTLIM_BLOCK_SLEEP);
+  EQUALCHK(status, 0);  /* Success. */
+  APPROXCHK(current_time_ns(), start_time + 1000000000);  /* 1 second. */
   EQUALCHK(rl->current_tokens, 40);
 
   rtlim_delete(rl);
