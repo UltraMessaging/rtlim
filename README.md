@@ -241,6 +241,9 @@ a nanosecond-precision, monotonically increasing time.
 For suggestions porting it to windows, see
 [porting-clock-gettime-to-windows](https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows).
 
+Also, RTLIM_BLOCK_SLEEP mode relies on usleep(), which has microsecond precision.
+Windows' Sleep() function has millisecond precision.
+
 
 ## Alternatives
 
