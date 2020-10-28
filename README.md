@@ -63,18 +63,71 @@ the "take" function delays for enough time to bring you into
 compliance.
 When the "take" function returns, you may perform the operation.
 
-There's also a non-blocking mode which returns an error code instead
-of busy looping when you exceed the limit.
 
+## Reference
 
-## Details
-
-When the rtlim object is created, the application passes two parameters:
+````
+rtlim_t *
+rtlim_create(unsigned long long refill_interval_ns, int refill_token_amount);
+````
+Where:
 * refill_interval_ns - time resolution for rate limiter.
 * refill_token_amount - number of tokens available in each interval.
+Returns:
+* Pointer to rtlim object.
 
-For example:
+rtlim_create() creates a rate limiter object.
 
+
+````
+void
+rtlim_delete(rtlim_t *rtlim);
+````
+Where:
+* rtlim - rate limiter object (previously returned by rtlim_create()).
+
+rtlim_delete() deletes a rate limiter object.
+
+
+````
+int
+rtlim_take(rtlim_t *rtlim, int take_token_amount, int block);
+````
+Where:
+* rtlim - rate limiter object (previously returned by rtlim_create()).
+* take_token_amount - number of tokens needed.
+* block - one of RTLIM_NON_BLOCK, RTLIM_BLOCK_SPIN, or RTLIM_BLOCK_SLEEP.
+
+Returns status code where:
+* 0 = Success.
+* -1 = Failed due to insufficient tokens available and RTLIM_NON_BLOCK
+was specified.
+* -2 = Failed due to requesting more tokens than refill_token_amount and RTLIM_NON_BLOCK was specified.
+There can never be more than refill_token_amount tokens,
+so trying to take more than that with non-blocking can never succeed.
+
+If the number of tokens needed can be satisfied,
+rtlim_take() decrements its internal token counter and returns
+immediately.
+
+If the number of tokens needed cannot be satisfied,
+rtlim_take()'s behavior depends on the "block" parameter.
+* RTLIM_NON_BLOCK - rtlim_take() returns immediately with a
+negative status to indicate insufficient tokens available.
+* RTLIM_BLOCK_SPIN - rtlim_take() delays by busy looping
+until enough tokens are earned to satisfy the need.
+* RTLIM_BLOCK_SLEEP - rtlim_take() delays by calling
+usleep() until enough tokens are earned to satisfy the need.
+It has the advantage of allowing other threads to use the CPU
+during its sleep time, but the disadvantage of being less deterministic
+as to when it wakes up.
+It might sleep significantly longer than the minimum time required,
+resulting in higher latencies than necessary.
+
+
+## Examples
+
+Create a rate limiter.
 ````
   rtlim_t *rtlim;
   rtlim = rtlim_create(1000000, 50);
@@ -92,16 +145,8 @@ For example, you can send in a tight loop at the desired rate of
   }
 ````
 Note that it specified RTLIM_BLOCK_SPIN.
-If a delay is needed, rtlim will busy-loop for the amount of time needed
+If a delay is needed, rtlim will busy-loop for the amount of time required
 to add more tokens to satisfy the rtlim_take().
-
-Alternaively, rtlim_take() can use RTLIM_BLOCK_SLEEP, which uses the
-"usleep()" function.
-It has the advantage of allowing other threads to use the CPU
-during its sleep time, but the disadvantage of being less deterministic
-as to when it wakes up.
-It might sleep significantly longer than the minimum time required,
-resulting in higher latencies than necessary.
 
 Let's say that each lbm_ssrc_send_ex() takes 2 microseconds.
 The first 50 times around the loop will execute at full speed,
@@ -133,7 +178,7 @@ needed,
 but care must be taken not to allow a burst so intense that it causes loss.
 That is, only delay the sender when the alternative (loss) is worse.
 
-To see some example usages that demonstrate its features and behavior,
+To see more example usages that demonstrate its features and behavior,
 see the "main()" function inside "rtlim.c".
 (Note: the "main()" function is conditionally compiled only if
 "-DSELFTEST" is specified.)
@@ -153,7 +198,7 @@ you might want a large message to consume more tokens than a small message.
 ````
   /* Assume 1300 bytes of user data par packet. */
   approx_num_packets = (message_size / 1300) + 1;
-  rtlim_take(rtlim, approx_num_packets, 1);
+  rtlim_take(rtlim, approx_num_packets, RTLIM_BLOCK_SPIN);
 ````
 Note that calculating the number of packets required by Ultra
 Messaging for a given message size can be difficult and depends
