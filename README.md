@@ -78,7 +78,7 @@ Returns pointer to rtlim object.
 
 rtlim_create() creates a rate limiter object.
 
-
+---
 ````
 void
 rtlim_delete(rtlim_t *rtlim);
@@ -88,7 +88,7 @@ Where:
 
 rtlim_delete() deletes a rate limiter object.
 
-
+---
 ````
 int
 rtlim_take(rtlim_t *rtlim, int take_token_amount, int block);
