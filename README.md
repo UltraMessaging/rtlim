@@ -73,8 +73,8 @@ rtlim_create(unsigned long long refill_interval_ns, int refill_token_amount);
 Where:
 * refill_interval_ns - time resolution for rate limiter.
 * refill_token_amount - number of tokens available in each interval.
-Returns:
-* Pointer to rtlim object.
+
+Returns pointer to rtlim object.
 
 rtlim_create() creates a rate limiter object.
 
