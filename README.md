@@ -117,12 +117,14 @@ negative status to indicate insufficient tokens available.
 * RTLIM_BLOCK_SPIN - rtlim_take() delays by busy looping
 until enough tokens are earned to satisfy the need.
 * RTLIM_BLOCK_SLEEP - rtlim_take() delays by calling
-usleep() until enough tokens are earned to satisfy the need.
+select() to sleep until enough tokens are earned to satisfy the need.
 This has the advantage of allowing other threads to use the CPU
-during its sleep time, but the disadvantage of being less deterministic
-as to when it wakes up.
+during its sleep time, but the disadvantage of being much less
+deterministic as to when it wakes up.
+The select() function produces highly variable sleep times
+for small time values (FYI the same is true for usleep()).
 It might sleep significantly longer than the minimum time required,
-resulting in higher latencies than necessary.
+resulting in lower throughput and higher latencies than necessary.
 
 
 ## Example

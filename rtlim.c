@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/select.h>
 
 #include "rtlim.h"
 
@@ -134,11 +135,14 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
         rtlim->current_tokens = 0;
         if (block == RTLIM_BLOCK_SLEEP) {
           /* How many microseconds to wait? */
-          unsigned long long delta_usec;
-          delta_usec = ( (rtlim->last_refill_ns + rtlim->refill_interval_ns) -
-                    rtlim->cur_ns ) / 1000ll;
-          if (delta_usec > 0) {
-            usleep((int)delta_usec);
+          unsigned long long delta_ns;
+          delta_ns = (rtlim->last_refill_ns + rtlim->refill_interval_ns) -
+                    rtlim->cur_ns;
+          if (delta_ns > 0) {
+            struct timeval tv;
+            tv.tv_sec = (delta_ns / 1000000000);
+            tv.tv_usec = ((delta_ns / 1000) % 1000000);
+            (void)select(1, NULL, NULL, NULL, &tv);
           }
         }
       }
