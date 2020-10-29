@@ -124,7 +124,7 @@ int rtlim_take(rtlim_t *rtlim, int take_token_amount, int block)
       rtlim->current_tokens -= take_token_amount;  /* Take tokens. */
       take_token_amount = 0;
     }
-    else {  /* Not enoough available tokens. */
+    else {  /* Not enough tokens available. */
       if (block == RTLIM_NON_BLOCK) {
         /* Non-blocking, not enough tokens. */
         return -1;
